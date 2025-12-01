@@ -306,7 +306,7 @@ with center:
             show_image(f"handling-image/give-t{st.session_state.team_number}-t{next_row['Student Team']}.png")
         else:
             st.subheader("🎉 You are the final team — no further handover needed.")
-        st.success("✅ Subtask complete. Great work!")
+        
         if st.button("Next Subtask"):
             if st.session_state.task_idx + 1 < len(team_tasks):
                 st.session_state.task_idx += 1
@@ -393,3 +393,4 @@ with center:
 
             else:
                 st.success("You have already submitted the survey.")
+
