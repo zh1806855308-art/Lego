@@ -417,5 +417,35 @@ with center:
                             st.success("✅ Thank you! Your survey is saved.")
                 else:
                     st.success("You have already submitted the survey.")
+# ============================
+# 📊 Instructor Survey Viewer
+# ============================
+
+st.markdown("---")
+st.markdown("### 📊 Instructor: View & Download Survey Responses")
+
+SURVEY_FILE = "survey_responses.csv"
+
+if os.path.exists(SURVEY_FILE):
+    df_survey = pd.read_csv(SURVEY_FILE)
+
+    st.success(f"Found {len(df_survey)} survey submissions.")
+
+    # 📌 展示表格
+    st.dataframe(df_survey, use_container_width=True)
+
+    # 📌 下载按钮
+    csv_bytes = df_survey.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        label="⬇️ Download survey_responses.csv",
+        data=csv_bytes,
+        file_name="survey_responses.csv",
+        mime="text/csv",
+    )
+
+else:
+    st.info("No survey responses submitted yet.")
+
+
 
 
