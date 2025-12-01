@@ -11,7 +11,7 @@ import hashlib
 st.set_page_config(layout="wide", initial_sidebar_state="expanded")
 
 # Initialize OpenAI client
-api_key = os.getenv("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")
+api_key = os.getenv("OPENAI_API_KEY")
 if not api_key:
     st.error("Please set your OPENAI_API_KEY environment variable!")
     st.stop()
@@ -417,4 +417,5 @@ with center:
                             st.success("✅ Thank you! Your survey is saved.")
                 else:
                     st.success("You have already submitted the survey.")
+
 
