@@ -321,7 +321,7 @@ with center:
             st.rerun()
 
     # Step 5: handover / survey
-        elif step == 4:
+    elif step == 4:
         # ----- 显示交接信息 -----
         idx = df.index.get_loc(current_task.name)
         if idx + 1 < len(df):
@@ -454,6 +454,7 @@ if os.path.exists(SURVEY_FILE):
 
 else:
     st.info("No survey responses submitted yet.")
+
 
 
 
