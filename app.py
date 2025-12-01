@@ -322,7 +322,6 @@ with center:
 
     # Step 5: handover / survey
     elif step == 4:
-        # ----- 显示交接信息 -----
         idx = df.index.get_loc(current_task.name)
         if idx + 1 < len(df):
             next_row = df.iloc[idx + 1]
@@ -335,10 +334,8 @@ with center:
 
         st.success("✅ Subtask complete. Great work!")
 
-        # 判断当前队伍是否还有下一个 subtask
         has_next_subtask = st.session_state.task_idx + 1 < len(team_tasks)
 
-        # ----- 有下一个 subtask：只显示按钮，点了就切到下一个 -----
         if has_next_subtask:
             if st.button("Next Subtask"):
                 st.session_state.task_idx += 1
@@ -349,7 +346,6 @@ with center:
                 st.session_state.collected_parts_confirmed = False
                 st.rerun()
 
-        # ----- 没有下一个 subtask：显示问卷表单 -----
         else:
             st.info("You have completed all your subtasks.")
 
@@ -413,7 +409,6 @@ with center:
                             "free_feedback": free_feedback.strip(),
                         }
 
-                        # 保存到本地 CSV（容器内）
                         if not os.path.exists(SURVEY_FILE):
                             pd.DataFrame([survey_row]).to_csv(SURVEY_FILE, index=False)
                         else:
@@ -426,11 +421,11 @@ with center:
             else:
                 st.success("✅ Thank you! Your survey is saved.")
 
-# ============================
-# 📊 Instructor Survey Viewer
-# ============================
+
+#  Instructor Survey Viewer
+
 st.markdown("---")
-st.markdown("### 📊 Instructor: View & Download Survey Responses")
+st.markdown("###  Instructor: View & Download Survey Responses")
 
 if os.path.exists(SURVEY_FILE):
     df_survey = pd.read_csv(SURVEY_FILE)
@@ -462,6 +457,7 @@ if os.path.exists(SURVEY_FILE):
 
 else:
     st.info("No survey responses submitted yet.")
+
 
 
 
