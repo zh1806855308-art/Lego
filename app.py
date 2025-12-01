@@ -438,16 +438,20 @@ if os.path.exists(SURVEY_FILE):
     st.success(f"Found {len(df_survey)} survey submissions.")
     st.dataframe(df_survey, use_container_width=True)
 
-    # 下载按钮
-    csv_bytes = df_survey.to_csv(index=False).encode("utf-8")
+    # --- Excel Download ---
+    import io
+    output = io.BytesIO()
+    df_survey.to_excel(output, index=False, sheet_name="Survey Responses")
+    excel_data = output.getvalue()
+
     st.download_button(
-        label="⬇️ Download survey_responses.csv",
-        data=csv_bytes,
-        file_name="survey_responses.csv",
-        mime="text/csv",
+        label="⬇️ Download survey_responses.xlsx",
+        data=excel_data,
+        file_name="survey_responses.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
-    # --- 🔥 Only keep a single delete button ---
+    # --- Delete button ---
     if st.button("🗑 Delete ALL survey responses"):
         try:
             os.remove(SURVEY_FILE)
