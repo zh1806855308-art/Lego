@@ -317,6 +317,114 @@ with center:
                 st.session_state.previous_step_confirmed = False
                 st.session_state.collected_parts_confirmed = False
                 st.rerun()
+                    if st.button("Next Subtask"):
+            if st.session_state.task_idx + 1 < len(team_tasks):
+                # 还有下一个子任务
+                st.session_state.task_idx += 1
+                st.session_state.step = 0
+                st.session_state.subassembly_confirmed_pages = set()
+                st.session_state.finalassembly_confirmed_pages = set()
+                st.session_state.previous_step_confirmed = False
+                st.session_state.collected_parts_confirmed = False
+                st.rerun()
             else:
+                # 所有子任务完成：展示完成信息 + 问卷
                 st.info("You have completed all your subtasks.")
+
+                # 只提交一次的保护
+                if "survey_submitted" not in st.session_state:
+                    st.session_state.survey_submitted = False
+
+                st.markdown("---")
+                st.markdown("### 📝 Final Survey")
+
+                if not st.session_state.survey_submitted:
+                    # 用 form 避免每次输入就立刻 rerun
+                    with st.form("final_survey"):
+                        st.markdown(
+                            "Please complete this short survey. "
+                            "Your feedback will help improve the assembly task."
+                        )
+
+                        # 身份信息（用你之前存的状态做默认值）
+                        group_color = st.selectbox(
+                            "Which group are you in?",
+                            ["Red", "Yellow, "Blue", "Green"],
+                            index=["Red", "Yellow", "Blue", "Green"].index(
+                                st.session_state.group_name
+                            ) if st.session_state.get("group_name") in ["Red", "Yellow", "Blue", "Green"] else 0,
+                        )
+                        team_num = st.selectbox(
+                            "Which team number are you in?",
+                            [1, 2, 3, 4, 5],
+                            index=[1, 2, 3, 4, 5].index(
+                                st.session_state.team_number
+                            ) if st.session_state.get("team_number") in [1, 2, 3, 4, 5] else 0,
+                        )
+                        student_name = st.text_input(
+                            "Enter your name:",
+                            value=st.session_state.get("student_name", ""),
+                        )
+
+                        # 正式问卷内容（你可以按需要改问题）
+                        difficulty = st.slider(
+                            "How difficult was the overall assembly task?",
+                            1,
+                            5,
+                            3,
+                            help="1 = Very easy, 5 = Very difficult",
+                        )
+                        enjoyment = st.slider(
+                            "How much did you enjoy the activity?",
+                            1,
+                            5,
+                            4,
+                            help="1 = Not at all, 5 = A lot",
+                        )
+                        clarity = st.slider(
+                            "How clear were the instructions?",
+                            1,
+                            5,
+                            4,
+                        )
+                        would_repeat = st.radio(
+                            "Would you like to do a similar activity again?",
+                            ["Yes", "No", "Not sure"],
+                        )
+                        free_feedback = st.text_area(
+                            "Anything else you would like to tell us?",
+                            placeholder="Write your comments here...",
+                        )
+
+                        submitted = st.form_submit_button("Submit Survey")
+
+                    if submitted:
+                        if not student_name.strip():
+                            st.warning("Please enter your name before submitting the survey.")
+                        else:
+                            # 组装成一行数据
+                            survey_row = {
+                                "student_name": student_name.strip(),
+                                "group_color": group_color,
+                                "team_number": team_num,
+                                "difficulty_1_5": difficulty,
+                                "enjoyment_1_5": enjoyment,
+                                "clarity_1_5": clarity,
+                                "would_repeat": would_repeat,
+                                "free_feedback": free_feedback.strip(),
+                            }
+                            survey_df = pd.DataFrame([survey_row])
+
+                            # 追加写入 CSV
+                            if not os.path.exists(SURVEY_FILE):
+                                survey_df.to_csv(SURVEY_FILE, index=False, mode="w")
+                            else:
+                                survey_df.to_csv(SURVEY_FILE, index=False, mode="a", header=False)
+
+                            st.session_state.survey_submitted = True
+                            st.success("✅ Thank you! Your survey has been recorded.")
+                else:
+                    st.success("✅ You have already submitted the survey. Thank you!")
+
+
 
