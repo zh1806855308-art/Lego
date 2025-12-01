@@ -349,7 +349,6 @@ with center:
         else:
             st.info("You have completed all your subtasks.")
 
-            # 初始化 survey 状态
             if "survey_submitted" not in st.session_state:
                 st.session_state.survey_submitted = False
 
@@ -385,6 +384,7 @@ with center:
 
                     difficulty = st.slider("Task difficulty (1 easy - 5 hard)", 1, 5, 3)
                     enjoyment = st.slider("How enjoyable was the activity? (1-5)", 1, 5, 4)
+                    helpful = st.slider("Does AI helpful in this project? (1-5)", 1, 5, 4)
                     clarity = st.slider("How clear were the instructions? (1-5)", 1, 5, 4)
                     would_repeat = st.radio(
                         "Would you like to do this again?",
@@ -404,6 +404,7 @@ with center:
                             "team_number": team_num,
                             "difficulty_1_5": difficulty,
                             "enjoyment_1_5": enjoyment,
+                            "helpful_1_5": helpful, 
                             "clarity_1_5": clarity,
                             "would_repeat": would_repeat,
                             "free_feedback": free_feedback.strip(),
@@ -457,6 +458,7 @@ if os.path.exists(SURVEY_FILE):
 
 else:
     st.info("No survey responses submitted yet.")
+
 
 
 
