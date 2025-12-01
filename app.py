@@ -447,80 +447,20 @@ if os.path.exists(SURVEY_FILE):
         mime="text/csv",
     )
 
-    st.markdown("#### ✏️ Edit / Delete a response")
+    st.markdown("#### ⚠️ Delete ALL survey responses")
+    st.warning(
+        "This will permanently delete **all** survey submissions stored in "
+        "`survey_responses.csv` in the current environment."
+    )
 
-    if len(df_survey) == 0:
-        st.info("No rows to edit or delete.")
-    else:
-        # 选择要编辑/删除的行号
-        max_idx = len(df_survey) - 1
-        selected_idx = st.number_input(
-            "Select row index (0 ~ {max_idx})".format(max_idx=max_idx),
-            min_value=0,
-            max_value=max_idx,
-            step=1,
-            format="%d",
-        )
-
-        st.write("Current row:")
-        st.dataframe(df_survey.iloc[[selected_idx]])
-
-        # ---- 编辑这行 ----
-        row = df_survey.iloc[selected_idx]
-
-        with st.form("edit_selected_row"):
-            st.markdown("Edit selected response")
-
-            student_name = st.text_input("student_name", value=str(row.get("student_name", "")))
-            group_color = st.text_input("group_color", value=str(row.get("group_color", "")))
-            team_number = st.number_input(
-                "team_number",
-                min_value=1,
-                max_value=10,
-                step=1,
-                value=int(row.get("team_number", 1)),
-            )
-            difficulty_1_5 = st.slider(
-                "difficulty_1_5", 1, 5, int(row.get("difficulty_1_5", 3))
-            )
-            enjoyment_1_5 = st.slider(
-                "enjoyment_1_5", 1, 5, int(row.get("enjoyment_1_5", 3))
-            )
-            clarity_1_5 = st.slider("clarity_1_5", 1, 5, int(row.get("clarity_1_5", 3)))
-            would_repeat = st.selectbox(
-                "would_repeat",
-                ["Yes", "No", "Not sure"],
-                index=["Yes", "No", "Not sure"].index(str(row.get("would_repeat", "Yes"))),
-            )
-            free_feedback = st.text_area("free_feedback", value=str(row.get("free_feedback", "")))
-
-            save_changes = st.form_submit_button("💾 Save changes")
-
-        if save_changes:
-            df_survey.at[selected_idx, "student_name"] = student_name
-            df_survey.at[selected_idx, "group_color"] = group_color
-            df_survey.at[selected_idx, "team_number"] = team_number
-            df_survey.at[selected_idx, "difficulty_1_5"] = difficulty_1_5
-            df_survey.at[selected_idx, "enjoyment_1_5"] = enjoyment_1_5
-            df_survey.at[selected_idx, "clarity_1_5"] = clarity_1_5
-            df_survey.at[selected_idx, "would_repeat"] = would_repeat
-            df_survey.at[selected_idx, "free_feedback"] = free_feedback
-
-            df_survey.to_csv(SURVEY_FILE, index=False)
-            st.success("Row updated. Please scroll to refresh the table.")
-            st.experimental_rerun()
-
-        # ---- 删除这行 ----
-        if st.button("🗑 Delete this response"):
-            df_survey = df_survey.drop(index=selected_idx).reset_index(drop=True)
-            df_survey.to_csv(SURVEY_FILE, index=False)
-            st.success(f"Row {selected_idx} deleted.")
-            st.experimental_rerun()
+    if st.button("🗑 Delete ALL survey responses"):
+        try:
+            os.remove(SURVEY_FILE)
+            st.success("All survey responses have been deleted.")
+        except FileNotFoundError:
+            st.info("No survey file found to delete.")
+        # 重新刷新页面
+        st.rerun()
 
 else:
     st.info("No survey responses submitted yet.")
-
-
-
-
-
