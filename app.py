@@ -447,20 +447,16 @@ if os.path.exists(SURVEY_FILE):
         mime="text/csv",
     )
 
-    st.markdown("#### ⚠️ Delete ALL survey responses")
-    st.warning(
-        "This will permanently delete **all** survey submissions stored in "
-        "`survey_responses.csv` in the current environment."
-    )
-
+    # --- 🔥 Only keep a single delete button ---
     if st.button("🗑 Delete ALL survey responses"):
         try:
             os.remove(SURVEY_FILE)
             st.success("All survey responses have been deleted.")
-        except FileNotFoundError:
-            st.info("No survey file found to delete.")
-        # 重新刷新页面
+        except:
+            st.error("Unexpected error while deleting the survey file.")
         st.rerun()
 
 else:
     st.info("No survey responses submitted yet.")
+
+
