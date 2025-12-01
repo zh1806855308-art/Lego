@@ -321,7 +321,8 @@ with center:
             st.rerun()
 
     # Step 5: handover / survey
-    elif step == 4:
+        elif step == 4:
+        # ----- 显示交接信息 -----
         idx = df.index.get_loc(current_task.name)
         if idx + 1 < len(df):
             next_row = df.iloc[idx + 1]
@@ -331,11 +332,15 @@ with center:
             )
         else:
             st.subheader("🎉 You are the final team — no further handover needed.")
+
         st.success("✅ Subtask complete. Great work!")
 
-        if st.button("Next Subtask"):
-            # still have subtasks in this team
-            if st.session_state.task_idx + 1 < len(team_tasks):
+        # 判断当前队伍是否还有下一个 subtask
+        has_next_subtask = st.session_state.task_idx + 1 < len(team_tasks)
+
+        # ----- 有下一个 subtask：只显示按钮，点了就切到下一个 -----
+        if has_next_subtask:
+            if st.button("Next Subtask"):
                 st.session_state.task_idx += 1
                 st.session_state.step = 0
                 st.session_state.subassembly_confirmed_pages = set()
@@ -343,80 +348,84 @@ with center:
                 st.session_state.previous_step_confirmed = False
                 st.session_state.collected_parts_confirmed = False
                 st.rerun()
-            # no more subtasks → survey
-            else:
-                st.info("You have completed all your subtasks.")
 
-                if "survey_submitted" not in st.session_state:
-                    st.session_state.survey_submitted = False
+        # ----- 没有下一个 subtask：显示问卷表单 -----
+        else:
+            st.info("You have completed all your subtasks.")
 
-                st.markdown("---")
-                st.markdown("### 📝 Final Survey")
+            # 初始化 survey 状态
+            if "survey_submitted" not in st.session_state:
+                st.session_state.survey_submitted = False
 
-                if not st.session_state.survey_submitted:
-                    with st.form("final_survey"):
-                        st.markdown("Please complete this short survey.")
+            st.markdown("---")
+            st.markdown("### 📝 Final Survey")
 
-                        group_color = st.selectbox(
-                            "Which group are you in?",
-                            ["Red", "Yellow", "Blue", "Green"],
-                            index=["Red", "Yellow", "Blue", "Green"].index(
-                                st.session_state.group_name
-                            )
-                            if st.session_state.get("group_name") in ["Red", "Yellow", "Blue", "Green"]
-                            else 0,
+            if not st.session_state.survey_submitted:
+                with st.form("final_survey"):
+                    st.markdown("Please complete this short survey.")
+
+                    group_color = st.selectbox(
+                        "Which group are you in?",
+                        ["Red", "Yellow", "Blue", "Green"],
+                        index=["Red", "Yellow", "Blue", "Green"].index(
+                            st.session_state.group_name
                         )
+                        if st.session_state.get("group_name") in ["Red", "Yellow", "Blue", "Green"]
+                        else 0,
+                    )
 
-                        team_num = st.selectbox(
-                            "Which team number are you in?",
-                            [1, 2, 3, 4, 5],
-                            index=[1, 2, 3, 4, 5].index(st.session_state.team_number)
-                            if st.session_state.get("team_number") in [1, 2, 3, 4, 5]
-                            else 0,
-                        )
+                    team_num = st.selectbox(
+                        "Which team number are you in?",
+                        [1, 2, 3, 4, 5],
+                        index=[1, 2, 3, 4, 5].index(st.session_state.team_number)
+                        if st.session_state.get("team_number") in [1, 2, 3, 4, 5]
+                        else 0,
+                    )
 
-                        student_name = st.text_input(
-                            "Enter your name:",
-                            value=st.session_state.get("student_name", ""),
-                        )
+                    student_name = st.text_input(
+                        "Enter your name:",
+                        value=st.session_state.get("student_name", ""),
+                    )
 
-                        difficulty = st.slider("Task difficulty (1 easy - 5 hard)", 1, 5, 3)
-                        enjoyment = st.slider("How enjoyable was the activity? (1-5)", 1, 5, 4)
-                        clarity = st.slider("How clear were the instructions? (1-5)", 1, 5, 4)
-                        would_repeat = st.radio(
-                            "Would you like to do this again?",
-                            ["Yes", "No", "Not sure"],
-                        )
-                        free_feedback = st.text_area("Additional feedback:")
+                    difficulty = st.slider("Task difficulty (1 easy - 5 hard)", 1, 5, 3)
+                    enjoyment = st.slider("How enjoyable was the activity? (1-5)", 1, 5, 4)
+                    clarity = st.slider("How clear were the instructions? (1-5)", 1, 5, 4)
+                    would_repeat = st.radio(
+                        "Would you like to do this again?",
+                        ["Yes", "No", "Not sure"],
+                    )
+                    free_feedback = st.text_area("Additional feedback:")
 
-                        submitted = st.form_submit_button("Submit Survey")
+                    submitted = st.form_submit_button("Submit Survey")
 
-                    if submitted:
-                        if not student_name.strip():
-                            st.warning("Please enter your name before submitting.")
+                if submitted:
+                    if not student_name.strip():
+                        st.warning("Please enter your name before submitting.")
+                    else:
+                        survey_row = {
+                            "student_name": student_name.strip(),
+                            "group_color": group_color,
+                            "team_number": team_num,
+                            "difficulty_1_5": difficulty,
+                            "enjoyment_1_5": enjoyment,
+                            "clarity_1_5": clarity,
+                            "would_repeat": would_repeat,
+                            "free_feedback": free_feedback.strip(),
+                        }
+
+                        # 保存到本地 CSV（容器内）
+                        if not os.path.exists(SURVEY_FILE):
+                            pd.DataFrame([survey_row]).to_csv(SURVEY_FILE, index=False)
                         else:
-                            survey_row = {
-                                "student_name": student_name.strip(),
-                                "group_color": group_color,
-                                "team_number": team_num,
-                                "difficulty_1_5": difficulty,
-                                "enjoyment_1_5": enjoyment,
-                                "clarity_1_5": clarity,
-                                "would_repeat": would_repeat,
-                                "free_feedback": free_feedback.strip(),
-                            }
+                            pd.DataFrame([survey_row]).to_csv(
+                                SURVEY_FILE, index=False, mode="a", header=False
+                            )
 
-                            survey_df = pd.DataFrame([survey_row])
+                        st.session_state.survey_submitted = True
+                        st.success("✅ Thank you! Your survey is saved.")
+            else:
+                st.success("✅ Thank you! Your survey is saved.")
 
-                            if not os.path.exists(SURVEY_FILE):
-                                survey_df.to_csv(SURVEY_FILE, index=False)
-                            else:
-                                survey_df.to_csv(SURVEY_FILE, index=False, mode="a", header=False)
-
-                            st.session_state.survey_submitted = True
-                            st.success("✅ Thank you! Your survey is saved.")
-                else:
-                    st.success("You have already submitted the survey.")
 # ============================
 # 📊 Instructor Survey Viewer
 # ============================
@@ -445,6 +454,7 @@ if os.path.exists(SURVEY_FILE):
 
 else:
     st.info("No survey responses submitted yet.")
+
 
 
 
