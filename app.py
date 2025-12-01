@@ -20,6 +20,7 @@ client = OpenAI(api_key=api_key)
 
 # Load DataFrame
 CSV_FILE = "lego_subtasks.csv"
+SURVEY_FILE = "survey_responses.csv" 
 if not os.path.exists(CSV_FILE):
     st.error(f"CSV file '{CSV_FILE}' not found in the app directory.")
     st.stop()
@@ -318,3 +319,4 @@ with center:
                 st.rerun()
             else:
                 st.info("You have completed all your subtasks.")
+
