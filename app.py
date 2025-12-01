@@ -18,63 +18,80 @@ if not api_key:
 
 client = OpenAI(api_key=api_key)
 
-# Load DataFrame
+# Files
 CSV_FILE = "lego_subtasks.csv"
+SURVEY_FILE = "survey_responses.csv"
+
+# Load DataFrame
 if not os.path.exists(CSV_FILE):
     st.error(f"CSV file '{CSV_FILE}' not found in the app directory.")
     st.stop()
 
 df = pd.read_csv(CSV_FILE)
-df['Subassembly'] = df['Subassembly'].apply(lambda x: ast.literal_eval(x) if pd.notna(x) else [])
-df['Final Assembly'] = df['Final Assembly'].apply(lambda x: ast.literal_eval(x) if pd.notna(x) else [])
+df["Subassembly"] = df["Subassembly"].apply(lambda x: ast.literal_eval(x) if pd.notna(x) else [])
+df["Final Assembly"] = df["Final Assembly"].apply(lambda x: ast.literal_eval(x) if pd.notna(x) else [])
+
 
 @st.cache_data
-def get_encoded_image(image_path):
+def get_encoded_image(image_path: str):
     if os.path.exists(image_path):
         with open(image_path, "rb") as img_file:
             return base64.b64encode(img_file.read()).decode()
     return None
 
-def show_image(image_path, caption=""):
+
+def show_image(image_path: str, caption: str = ""):
     if os.path.exists(image_path):
         img = Image.open(image_path)
         st.image(img, caption=caption, use_container_width=True)
     else:
         st.warning(f"Image not found: {image_path}")
 
-def show_gpt_response(answer):
-    st.markdown(f"""
+
+def show_gpt_response(answer: str):
+    st.markdown(
+        f"""
     <div style='text-align: left; padding: 10px; background-color: #e8f0fe; border-left: 5px solid #4285f4; border-radius: 8px; margin-bottom: 1em;'>
         🧠 <strong>AGEMT says:</strong><br>{answer}
     </div>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
-def get_question_hash(question, context):
+
+def get_question_hash(question: str, context: dict) -> str:
     hash_input = question + str(context)
     return hashlib.md5(hash_input.encode()).hexdigest()
 
-def format_task_sequence(df):
+
+def format_task_sequence(df_: pd.DataFrame) -> str:
     lines = []
-    for i, row in df.iterrows():
-        line = f"{i+1}. Subtask: {row['Subtask Name']} | Team: {row['Student Team']} | Bag: {row['Bag']} | Subassembly: {row['Subassembly']} | Final Assembly: {row['Final Assembly']}"
+    for i, row in df_.iterrows():
+        line = (
+            f"{i + 1}. Subtask: {row['Subtask Name']} | Team: {row['Student Team']} | "
+            f"Bag: {row['Bag']} | Subassembly: {row['Subassembly']} | Final Assembly: {row['Final Assembly']}"
+        )
         lines.append(line)
     return "\n".join(lines)
 
-def call_chatgpt(user_question, context):
+
+def call_chatgpt(user_question: str, context: dict) -> str:
     image_messages = []
-    for page in context.get('subassembly', []) + context.get('final_assembly', []):
+    for page in context.get("subassembly", []) + context.get("final_assembly", []):
         img_path = f"manuals/page_{page}.png"
         image_content = get_encoded_image(img_path)
         if image_content:
-            image_messages.append({
-                "type": "image_url",
-                "image_url": {
-                    "url": f"data:image/png;base64,{image_content}",
-                    "detail": "high"
+            image_messages.append(
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/png;base64,{image_content}",
+                        "detail": "high",
+                    },
                 }
-            })
+            )
 
-    team_number = context.get('team_number', 'Unknown')
+    team_number = context.get("team_number", "Unknown")
 
     system_prompt = (
         "You are a helpful assistant helping a student with a physical LEGO assembly task. "
@@ -99,10 +116,7 @@ Here is the full task sequence across all teams:
 
     messages = [
         {"role": "system", "content": system_prompt},
-        {
-            "role": "user",
-            "content": [{"type": "text", "text": user_prompt}] + image_messages
-        }
+        {"role": "user", "content": [{"type": "text", "text": user_prompt}] + image_messages},
     ]
 
     response = client.chat.completions.create(
@@ -112,11 +126,13 @@ Here is the full task sequence across all teams:
     )
     return response.choices[0].message.content.strip()
 
-# === User Info Input Page ===
-if ("group_name" not in st.session_state or
-    "student_name" not in st.session_state or
-    "team_number" not in st.session_state):
 
+# === User Info Input Page ===
+if (
+    "group_name" not in st.session_state
+    or "student_name" not in st.session_state
+    or "team_number" not in st.session_state
+):
     st.header("Welcome to the Assembly Task")
 
     group_name_input = st.selectbox("Which group are you in?", ["Red", "Yellow", "Blue", "Green"])
@@ -141,25 +157,27 @@ with st.sidebar:
     st.markdown(f"**Group Name:** {st.session_state.group_name}")
     st.markdown(f"**Team Number:** {st.session_state.team_number}")
 
-    team_tasks_preview = df[df['Student Team'] == st.session_state.team_number]
-    if 'task_idx' in st.session_state and not team_tasks_preview.empty:
+    team_tasks_preview = df[df["Student Team"] == st.session_state.team_number]
+    if "task_idx" in st.session_state and not team_tasks_preview.empty:
         current_task_preview = team_tasks_preview.iloc[st.session_state.task_idx]
-        st.markdown(f"""
+        st.markdown(
+            f"""
         **Subtask:** {current_task_preview['Subtask Name']}  
         **Bag:** {current_task_preview['Bag']}  
         **Collect Parts:** {'✅' if st.session_state.get('collected_parts_confirmed', False) else '❌'}
-        """)
-        if current_task_preview['Subassembly']:
+        """
+        )
+        if current_task_preview["Subassembly"]:
             st.markdown("**Subassembly:**")
-            for page in current_task_preview['Subassembly']:
-                done = page in st.session_state.get('subassembly_confirmed_pages', set())
+            for page in current_task_preview["Subassembly"]:
+                done = page in st.session_state.get("subassembly_confirmed_pages", set())
                 st.markdown(f"- Page {page}: {'✅' if done else '❌'}")
-        if current_task_preview['Final Assembly']:
+        if current_task_preview["Final Assembly"]:
             st.markdown("**Final Assembly:**")
-            for page in current_task_preview['Final Assembly']:
-                done = page in st.session_state.get('finalassembly_confirmed_pages', set())
+            for page in current_task_preview["Final Assembly"]:
+                done = page in st.session_state.get("finalassembly_confirmed_pages", set())
                 st.markdown(f"- Page {page}: {'✅' if done else '❌'}")
-        if st.session_state.get('step', 0) == 4:
+        if st.session_state.get("step", 0) == 4:
             st.markdown("**Handover:** ✅")
 
     with st.expander("💬 AGEMT", expanded=False):
@@ -170,38 +188,39 @@ with st.sidebar:
         if current_step in range(len(step_keys)):
             key = step_keys[current_step]
             user_question = st.text_input("Your question to AGEMT:", key=key)
-            if user_question and user_question.lower() != 'n':
-                task_idx = st.session_state.get('task_idx', 0)
-                current_task = df[df['Student Team'] == st.session_state.team_number].iloc[task_idx]
-                idx = df.index.get_loc(current_task.name)
-                prev_row = df.iloc[idx - 1] if idx > 0 else None
-            
-                context = {
-                    "subtask_name": current_task["Subtask Name"],
-                    "subassembly": current_task["Subassembly"],
-                    "final_assembly": current_task["Final Assembly"],
-                    "bag": current_task["Bag"],
-                    "previous_step": prev_row["Subtask Name"] if prev_row is not None else None,
+            if user_question and user_question.lower() != "n":
+                task_idx = st.session_state.get("task_idx", 0)
+                current_task_q = df[df["Student Team"] == st.session_state.team_number].iloc[task_idx]
+                idx_q = df.index.get_loc(current_task_q.name)
+                prev_row_q = df.iloc[idx_q - 1] if idx_q > 0 else None
+
+                context_q = {
+                    "subtask_name": current_task_q["Subtask Name"],
+                    "subassembly": current_task_q["Subassembly"],
+                    "final_assembly": current_task_q["Final Assembly"],
+                    "bag": current_task_q["Bag"],
+                    "previous_step": prev_row_q["Subtask Name"] if prev_row_q is not None else None,
                     "team_number": st.session_state.team_number,
-                    "task_sequence_text": format_task_sequence(df),  # <-- Make sure this is here
+                    "task_sequence_text": format_task_sequence(df),
                 }
-                q_hash = get_question_hash(user_question, context)
+                q_hash = get_question_hash(user_question, context_q)
                 if q_hash not in st.session_state:
-                    answer = call_chatgpt(user_question, context)
+                    answer = call_chatgpt(user_question, context_q)
                     st.session_state[q_hash] = answer
                 show_gpt_response(st.session_state[q_hash])
         else:
             st.info("No active step to ask about.")
 
-# Main layout
+# === Main layout ===
 left, center, _ = st.columns([1, 2, 1])
 with center:
-    team_tasks = df[df['Student Team'] == st.session_state.team_number]
+    team_tasks = df[df["Student Team"] == st.session_state.team_number]
     if team_tasks.empty:
         st.error(f"No subtasks found for Team {st.session_state.team_number}.")
         st.stop()
 
-    if 'task_idx' not in st.session_state:
+    # initialize session state
+    if "task_idx" not in st.session_state:
         st.session_state.task_idx = 0
         st.session_state.step = 0
         st.session_state.subassembly_confirmed_pages = set()
@@ -220,13 +239,14 @@ with center:
         "previous_step": None,
     }
 
-    # Visual progress bar with Subtask ID or Name
+    # progress bar
     total_steps = 5
     current_progress = min(step / (total_steps - 1), 1.0)
     subtask_id = current_task.get("Subtask ID", current_task["Subtask Name"])
     st.markdown(f"### 🧱 Subtask: {subtask_id}")
     st.progress(current_progress, text=f"Step {step + 1} of {total_steps}")
 
+    # Step 1: collect parts
     if step == 0:
         st.subheader("Step 1: Collect required parts")
         part_img = f"combined_subtasks/{context['subtask_name']}.png"
@@ -237,16 +257,17 @@ with center:
                 st.session_state.step = 1
                 st.rerun()
 
+    # Step 2: subassembly
     elif step == 1:
-        if context['subassembly']:
+        if context["subassembly"]:
             st.subheader("Step 2: Perform subassembly")
-            for page in context['subassembly']:
+            for page in context["subassembly"]:
                 show_image(f"manuals/page_{page}.png", f"Subassembly - Page {page}")
                 if page not in st.session_state.subassembly_confirmed_pages:
                     if st.button(f"✅ Confirm completed Subassembly - Page {page}"):
                         st.session_state.subassembly_confirmed_pages.add(page)
                         st.rerun()
-            if len(st.session_state.subassembly_confirmed_pages) == len(context['subassembly']):
+            if len(st.session_state.subassembly_confirmed_pages) == len(context["subassembly"]):
                 st.success("All subassembly pages completed!")
                 st.session_state.step = 2
                 st.rerun()
@@ -254,12 +275,13 @@ with center:
             st.session_state.step = 2
             st.rerun()
 
+    # Step 3: receive handover
     elif step == 2:
         idx = df.index.get_loc(current_task.name)
         if idx > 0:
             prev_row = df.iloc[idx - 1]
-            context['previous_step'] = prev_row['Subtask Name']
-            giver_team = prev_row['Student Team']
+            context["previous_step"] = prev_row["Subtask Name"]
+            giver_team = prev_row["Student Team"]
             receiver_team = st.session_state.team_number
             st.subheader(f"Step 3: Receive from Team {giver_team}")
             show_image(f"handling-image/receive-t{giver_team}-t{receiver_team}.png")
@@ -273,10 +295,11 @@ with center:
             st.session_state.step = 3
             st.rerun()
 
+    # Step 4: final assembly
     elif step == 3:
         st.subheader("Step 4: Perform the final assembly")
-        subassembly_pages = set(context['subassembly']) if context['subassembly'] else set()
-        final_assembly_pages = context['final_assembly']
+        subassembly_pages = set(context["subassembly"]) if context["subassembly"] else set()
+        final_assembly_pages = context["final_assembly"]
 
         for page in final_assembly_pages:
             manual_path = f"manuals/page_{page}.png"
@@ -284,7 +307,6 @@ with center:
 
             if page not in st.session_state.finalassembly_confirmed_pages:
                 if page in subassembly_pages:
-                    # Overlapping page confirmation button text
                     if st.button(f"✅ The subassembled part for Page {page} is ready"):
                         st.session_state.finalassembly_confirmed_pages.add(page)
                         st.rerun()
@@ -298,17 +320,21 @@ with center:
             st.session_state.step = 4
             st.rerun()
 
+    # Step 5: handover / survey
     elif step == 4:
         idx = df.index.get_loc(current_task.name)
         if idx + 1 < len(df):
             next_row = df.iloc[idx + 1]
             st.subheader(f"Step 5: Handover to Team {next_row['Student Team']}")
-            show_image(f"handling-image/give-t{st.session_state.team_number}-t{next_row['Student Team']}.png")
+            show_image(
+                f"handling-image/give-t{st.session_state.team_number}-t{next_row['Student Team']}.png"
+            )
         else:
             st.subheader("🎉 You are the final team — no further handover needed.")
         st.success("✅ Subtask complete. Great work!")
-        
+
         if st.button("Next Subtask"):
+            # still have subtasks in this team
             if st.session_state.task_idx + 1 < len(team_tasks):
                 st.session_state.task_idx += 1
                 st.session_state.step = 0
@@ -317,19 +343,20 @@ with center:
                 st.session_state.previous_step_confirmed = False
                 st.session_state.collected_parts_confirmed = False
                 st.rerun()
+            # no more subtasks → survey
             else:
                 st.info("You have completed all your subtasks.")
+
                 if "survey_submitted" not in st.session_state:
-                st.session_state.survey_submitted = False
+                    st.session_state.survey_submitted = False
 
                 st.markdown("---")
                 st.markdown("### 📝 Final Survey")
-    
+
                 if not st.session_state.survey_submitted:
                     with st.form("final_survey"):
                         st.markdown("Please complete this short survey.")
-    
-                        # identity info
+
                         group_color = st.selectbox(
                             "Which group are you in?",
                             ["Red", "Yellow", "Blue", "Green"],
@@ -339,33 +366,31 @@ with center:
                             if st.session_state.get("group_name") in ["Red", "Yellow", "Blue", "Green"]
                             else 0,
                         )
-    
+
                         team_num = st.selectbox(
                             "Which team number are you in?",
                             [1, 2, 3, 4, 5],
-                            index=[1, 2, 3, 4, 5].index(
-                                st.session_state.team_number
-                            )
+                            index=[1, 2, 3, 4, 5].index(st.session_state.team_number)
                             if st.session_state.get("team_number") in [1, 2, 3, 4, 5]
                             else 0,
                         )
-    
+
                         student_name = st.text_input(
                             "Enter your name:",
                             value=st.session_state.get("student_name", ""),
                         )
-    
-                        # survey content
+
                         difficulty = st.slider("Task difficulty (1 easy - 5 hard)", 1, 5, 3)
                         enjoyment = st.slider("How enjoyable was the activity? (1-5)", 1, 5, 4)
                         clarity = st.slider("How clear were the instructions? (1-5)", 1, 5, 4)
                         would_repeat = st.radio(
-                            "Would you like to do this again?", ["Yes", "No", "Not sure"]
+                            "Would you like to do this again?",
+                            ["Yes", "No", "Not sure"],
                         )
                         free_feedback = st.text_area("Additional feedback:")
-    
+
                         submitted = st.form_submit_button("Submit Survey")
-    
+
                     if submitted:
                         if not student_name.strip():
                             st.warning("Please enter your name before submitting.")
@@ -380,19 +405,15 @@ with center:
                                 "would_repeat": would_repeat,
                                 "free_feedback": free_feedback.strip(),
                             }
-    
+
                             survey_df = pd.DataFrame([survey_row])
-                            SURVEY_FILE = "survey_responses.csv"
-    
+
                             if not os.path.exists(SURVEY_FILE):
                                 survey_df.to_csv(SURVEY_FILE, index=False)
                             else:
                                 survey_df.to_csv(SURVEY_FILE, index=False, mode="a", header=False)
-    
+
                             st.session_state.survey_submitted = True
                             st.success("✅ Thank you! Your survey is saved.")
-    
-                else:        
+                else:
                     st.success("You have already submitted the survey.")
-
-
