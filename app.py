@@ -420,17 +420,52 @@ with center:
                         value=st.session_state.get("student_name", ""),
                     )
 
-                    difficulty = st.slider("Task difficulty (1 easy - 5 hard)", 1, 5, 3)
+                    # ===== 新增 / 保留的问题 =====
+                    task_completion_driver = st.text_area(
+                        "What mainly led to the completion of your task? "
+                        "(什么主导了你们的 task 的完成？)",
+                        height=70,
+                    )
+
+                    ai_feedback_accuracy = st.slider(
+                        "How accurate was the AI's feedback? "
+                        "(AI 给你的反馈是否准确？)",
+                        1,
+                        5,
+                        4,
+                    )
+
+                    ai_feedback_helpfulness = st.slider(
+                        "How helpful was the AI's feedback? "
+                        "(AI 的反馈对你是否有帮助？)",
+                        1,
+                        5,
+                        4,
+                    )
+
+                    score_improvement_ideas = st.text_area(
+                        "What would help you get a better performance/grade? "
+                        "(你觉得如何会让你们的成绩更好？)",
+                        height=70,
+                    )
+
+                    difficulty = st.slider(
+                        "Task difficulty (1 easy - 5 hard)", 1, 5, 3
+                    )
                     enjoyment = st.slider(
                         "How enjoyable was the activity? (1-5)", 1, 5, 4
                     )
                     clarity = st.slider(
                         "How clear were the instructions? (1-5)", 1, 5, 4
                     )
-                    would_repeat = st.radio(
-                        "Would you like to do this again?",
-                        ["Yes", "No", "Not sure"],
+
+                    genai_improvement_ideas = st.text_area(
+                        "How could GenAI better improve your efficiency "
+                        "(information, suggestions, guidance)? "
+                        "(如何通过 Gen AI 提高效率：信息、建议、指导？)",
+                        height=80,
                     )
+
                     free_feedback = st.text_area("Additional feedback:")
 
                     submitted = st.form_submit_button("Submit Survey")
@@ -449,11 +484,18 @@ with center:
                             "student_name": student_name.strip(),
                             "group_color": group_color,
                             "team_number": team_num,
+                            # 新增字段
+                            "task_completion_driver": task_completion_driver.strip(),
+                            "ai_feedback_accuracy_1_5": ai_feedback_accuracy,
+                            "ai_feedback_helpfulness_1_5": ai_feedback_helpfulness,
+                            "score_improvement_ideas": score_improvement_ideas.strip(),
+                            "genai_improvement_ideas": genai_improvement_ideas.strip(),
+                            # 保留原有指标
                             "difficulty_1_5": difficulty,
                             "enjoyment_1_5": enjoyment,
                             "clarity_1_5": clarity,
-                            "would_repeat": would_repeat,
                             "free_feedback": free_feedback.strip(),
+                            # 对话日志
                             "conversation_log": conversation_log,
                         }
 
