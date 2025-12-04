@@ -519,24 +519,34 @@ st.markdown("---")
 st.markdown("###  Instructor: View & Download Survey Responses")
 
 if os.path.exists(SURVEY_FILE):
-    df_survey = pd.read_csv(SURVEY_FILE)
+    try:
+        # 用 engine='python' + on_bad_lines='skip' 提高容错
+        df_survey = pd.read_csv(
+            SURVEY_FILE, engine="python", on_bad_lines="skip"
+        )
 
-    st.success(f"Found {len(df_survey)} survey submissions.")
-    st.dataframe(df_survey, use_container_width=True)
+        st.success(f"Found {len(df_survey)} survey submissions.")
+        st.dataframe(df_survey, use_container_width=True)
 
-    # Excel Download
-    output = io.BytesIO()
-    df_survey.to_excel(output, index=False, sheet_name="Survey Responses")
-    excel_data = output.getvalue()
+        # Excel Download
+        output = io.BytesIO()
+        df_survey.to_excel(output, index=False, sheet_name="Survey Responses")
+        excel_data = output.getvalue()
 
-    st.download_button(
-        label="⬇️ Download survey_responses.xlsx",
-        data=excel_data,
-        file_name="survey_responses.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    )
+        st.download_button(
+            label="⬇️ Download survey_responses.xlsx",
+            data=excel_data,
+            file_name="survey_responses.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
 
-    # Delete button
+    except Exception as e:
+        st.error(
+            "survey_responses.csv 目前的格式有问题（可能是旧版本留下的），"
+            "无法正常解析。如果不需要旧数据，可以点击下面的按钮清空重来。"
+        )
+
+    # Delete button（无论解析成功与否都提供）
     if st.button("🗑 Delete ALL survey responses"):
         try:
             os.remove(SURVEY_FILE)
@@ -544,6 +554,5 @@ if os.path.exists(SURVEY_FILE):
         except Exception:
             st.error("Unexpected error while deleting the survey file.")
         st.rerun()
-
 else:
     st.info("No survey responses submitted yet.")
