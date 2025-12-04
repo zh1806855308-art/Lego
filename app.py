@@ -8,11 +8,7 @@ import base64
 import hashlib
 import io
 import os
-if os.path.exists("survey_responses.csv"):
-    os.remove("survey_responses.csv")
-    st.success("survey_responses.csv successfully deleted!")
-else:
-    st.info("No such file.")
+st.write("Files:", os.listdir("."))
 
 
 # =========================
@@ -562,5 +558,6 @@ with st.expander("🔐 Instructor Panel (password required)", expanded=False):
                 st.info("No survey responses submitted yet.")
         else:
             st.error("Incorrect instructor password.")
+
 
 
