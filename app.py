@@ -402,35 +402,34 @@ with center:
                         "Enter your name:",
                         value=st.session_state.get("student_name", ""),
                     )
-
-                    task_completion_driver = st.text_area(
-                        "What mainly led to the completion of your task?",
-                        placeholder="For example: teamwork, AI suggestions, carefully reading the instructions, and so on…",
-                    )
-
                     ai_feedback_accuracy = st.slider(
                         "How accurate was the AI feedback? (1-5)", 1, 5, 4
                     )
                     ai_feedback_helpfulness = st.slider(
                         "How helpful was the AI feedback? (1-5)", 1, 5, 4
                     )
-
-                    score_improvement_ideas = st.text_area(
-                        "What do you think would help you get a better score?",
-                        placeholder="For example: more practice time, clearer division of tasks, more detailed instructions…",
+                    difficulty = st.slider(
+                        "Task difficulty (1 easy - 5 hard)", 1, 5, 3
                     )
-
-                    genai_improvement_ideas = st.text_area(
-                        "How could GenAI further improve your efficiency? (Information / Advice / Guidance)",
-                        placeholder="For example: automatic summarization, real-time error checking, more detailed step-by-step guidance…",
-                    )
-
-                    difficulty = st.slider("Task difficulty (1 easy - 5 hard)", 1, 5, 3)
                     enjoyment = st.slider(
                         "How enjoyable was the activity? (1-5)", 1, 5, 4
                     )
                     clarity = st.slider(
                         "How clear were the instructions? (1-5)", 1, 5, 4
+                    )
+                    task_completion_driver = st.text_area(
+                        "What mainly led to the completion of your task?",
+                        placeholder="For example: teamwork, AI suggestions, carefully reading the instructions, and so on…",
+                    )
+
+                    score_improvement_ideas = st.text_area(
+                        "what are the key factors to help you finish this task on time?",
+                        placeholder="For example: more practice time, clearer division of tasks, more detailed instructions, etc. ",
+                    )
+
+                    genai_improvement_ideas = st.text_area(
+                        "Do you prefer the get the instruction from GenAI or technical manual? Why?",
+                        placeholder="For example: automatic summarization, real-time error checking, more detailed step-by-step guidance…",
                     )
 
                     free_feedback = st.text_area("Additional feedback:")
@@ -527,5 +526,6 @@ with st.expander("🔐 Instructor Panel (password required)", expanded=False):
                 st.info("No survey responses submitted yet.")
         else:
             st.error("Incorrect instructor password.")
+
 
 
