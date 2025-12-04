@@ -7,6 +7,8 @@ from openai import OpenAI
 import base64
 import hashlib
 import io
+import os
+st.write("Files:", os.listdir("."))
 
 # =========================
 # Page & global config
@@ -555,3 +557,4 @@ with st.expander("🔐 Instructor Panel (password required)", expanded=False):
                 st.info("No survey responses submitted yet.")
         else:
             st.error("Incorrect instructor password.")
+
