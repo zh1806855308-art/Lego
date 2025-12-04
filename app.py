@@ -8,18 +8,13 @@ import base64
 import hashlib
 import io
 
-
-
-# =========================
-# Page & global config
-# =========================
 st.set_page_config(layout="wide", initial_sidebar_state="expanded")
 
 CSV_FILE = "lego_subtasks.csv"
 SURVEY_FILE = "survey_responses.csv"
 
-# 管理员密码（可以用环境变量覆盖）
-ADMIN_PASSWORD = os.getenv("INSTRUCTOR_PASSWORD", "lego-admin-2024")
+# PASSWARD
+ADMIN_PASSWORD = os.getenv("INSTRUCTOR_PASSWORD", "lego")
 
 # =========================
 # OpenAI client
@@ -31,9 +26,7 @@ if not api_key:
 
 client = OpenAI(api_key=api_key)
 
-# =========================
-# Load subtasks CSV
-# =========================
+
 if not os.path.exists(CSV_FILE):
     st.error(f"CSV file '{CSV_FILE}' not found in the app directory.")
     st.stop()
@@ -43,9 +36,6 @@ df["Subassembly"] = df["Subassembly"].apply(lambda x: ast.literal_eval(x) if pd.
 df["Final Assembly"] = df["Final Assembly"].apply(lambda x: ast.literal_eval(x) if pd.notna(x) else [])
 
 
-# =========================
-# Utility functions
-# =========================
 @st.cache_data
 def get_encoded_image(image_path: str):
     if os.path.exists(image_path):
@@ -142,9 +132,6 @@ Here is the full task sequence across all teams:
     return response.choices[0].message.content.strip()
 
 
-# =========================
-# User info gate
-# =========================
 if (
     "group_name" not in st.session_state
     or "student_name" not in st.session_state
@@ -167,15 +154,12 @@ if (
             st.warning("Please enter your name before submitting.")
     st.stop()
 
-# 初始化 AI 对话历史
+
 if "chat_history" not in st.session_state:
-    # 每条记录：{"step": int, "subtask": str, "question": str, "answer": str}
+    # {"step": int, "subtask": str, "question": str, "answer": str}
     st.session_state.chat_history = []
 
 
-# =========================
-# Sidebar: Progress + AGEMT
-# =========================
 with st.sidebar:
     st.header("Progress Tracker")
     st.markdown(f"**Student:** {st.session_state.student_name}")
@@ -205,7 +189,6 @@ with st.sidebar:
         if st.session_state.get("step", 0) == 4:
             st.markdown("**Handover:** ✅")
 
-    # ---- AGEMT expander ----
     with st.expander("💬 AGEMT", expanded=False):
         st.markdown("Ask a question about your current step.")
         step_keys = ["q_step0", "q_step1", "q_step2", "q_step3", "q_step4"]
@@ -235,12 +218,10 @@ with st.sidebar:
                     }
                     q_hash = get_question_hash(user_question, context_q)
 
-                    # ✅ 只在第一次提这个问题时：调用 GPT + 记录到 chat_history
                     if q_hash not in st.session_state:
                         answer = call_chatgpt(user_question, context_q)
                         st.session_state[q_hash] = answer
-
-                        # 记录 AI 对话（只记录一次）
+                        
                         st.session_state.chat_history.append(
                             {
                                 "step": current_step,
@@ -249,16 +230,11 @@ with st.sidebar:
                                 "answer": st.session_state[q_hash],
                             }
                         )
-
-                    # 无论是新问题还是缓存问题，都显示同一个回答
                     show_gpt_response(st.session_state[q_hash])
         else:
             st.info("No active step to ask about.")
 
 
-# =========================
-# Main layout (center)
-# =========================
 left, center, _ = st.columns([1, 2, 1])
 
 with center:
@@ -393,7 +369,6 @@ with center:
                 st.session_state.finalassembly_confirmed_pages = set()
                 st.session_state.previous_step_confirmed = False
                 st.session_state.collected_parts_confirmed = False
-                # 不清空 chat_history，让 AI 问答可以贯穿整个活动
                 st.rerun()
         else:
             st.info("You have completed all your subtasks.")
@@ -402,7 +377,7 @@ with center:
                 st.session_state.survey_submitted = False
 
             st.markdown("---")
-            st.markdown("### 📝 Final Survey")
+            st.markdown("📝 Survey")
 
             if not st.session_state.survey_submitted:
                 with st.form("final_survey"):
@@ -431,10 +406,9 @@ with center:
                         value=st.session_state.get("student_name", ""),
                     )
 
-                    # —— 你图片里那套更细的问卷 —— 
                     task_completion_driver = st.text_area(
-                        "What mainly led to the completion of your task? (可以用中文回答)",
-                        placeholder="例如：团队合作、AI 建议、仔细阅读说明书 等……",
+                        "What mainly led to the completion of your task?",
+                        placeholder="For example: teamwork, AI suggestions, carefully reading the instructions, and so on…",
                     )
 
                     ai_feedback_accuracy = st.slider(
@@ -445,13 +419,13 @@ with center:
                     )
 
                     score_improvement_ideas = st.text_area(
-                        "What do you think would help you get a better score? (可以用中文回答)",
-                        placeholder="例如：更多练习时间、更清晰的分工、更详细的说明……",
+                        "What do you think would help you get a better score?",
+                        placeholder="For example: more practice time, clearer division of tasks, more detailed instructions…",
                     )
 
                     genai_improvement_ideas = st.text_area(
-                        "How could GenAI further improve your efficiency? (信息 / 建议 / 指导)",
-                        placeholder="例如：自动总结、实时检查错误、更具体的步骤指引……",
+                        "How could GenAI further improve your efficiency? (Information / Advice / Guidance)",
+                        placeholder="For example: automatic summarization, real-time error checking, more detailed step-by-step guidance…",
                     )
 
                     difficulty = st.slider("Task difficulty (1 easy - 5 hard)", 1, 5, 3)
@@ -470,7 +444,6 @@ with center:
                     if not student_name.strip():
                         st.warning("Please enter your name before submitting.")
                     else:
-                        # 把 chat_history 整理成字符串
                         history = st.session_state.get("chat_history", [])
                         if history:
                             lines = []
@@ -512,9 +485,6 @@ with center:
                 st.success("✅ Thank you! Your survey is saved.")
 
 
-# =========================
-# Instructor Panel (password protected)
-# =========================
 st.markdown("---")
 with st.expander("🔐 Instructor Panel (password required)", expanded=False):
     pwd = st.text_input("Instructor password:", type="password")
@@ -560,3 +530,4 @@ with st.expander("🔐 Instructor Panel (password required)", expanded=False):
                 st.info("No survey responses submitted yet.")
         else:
             st.error("Incorrect instructor password.")
+
