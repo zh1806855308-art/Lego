@@ -16,9 +16,6 @@ SURVEY_FILE = "survey_responses.csv"
 # PASSWARD
 ADMIN_PASSWORD = os.getenv("INSTRUCTOR_PASSWORD", "lego")
 
-# =========================
-# OpenAI client
-# =========================
 api_key = os.getenv("OPENAI_API_KEY")
 if not api_key:
     st.error("Please set your OPENAI_API_KEY environment variable!")
@@ -530,4 +527,5 @@ with st.expander("🔐 Instructor Panel (password required)", expanded=False):
                 st.info("No survey responses submitted yet.")
         else:
             st.error("Incorrect instructor password.")
+
 
