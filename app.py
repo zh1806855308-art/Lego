@@ -234,20 +234,23 @@ with st.sidebar:
                         "task_sequence_text": format_task_sequence(df),
                     }
                     q_hash = get_question_hash(user_question, context_q)
+
+                    # ✅ 只在第一次提这个问题时：调用 GPT + 记录到 chat_history
                     if q_hash not in st.session_state:
                         answer = call_chatgpt(user_question, context_q)
                         st.session_state[q_hash] = answer
 
-                    # 记录 AI 对话
-                    st.session_state.chat_history.append(
-                        {
-                            "step": current_step,
-                            "subtask": current_task_q["Subtask Name"],
-                            "question": user_question,
-                            "answer": st.session_state[q_hash],
-                        }
-                    )
+                        # 记录 AI 对话（只记录一次）
+                        st.session_state.chat_history.append(
+                            {
+                                "step": current_step,
+                                "subtask": current_task_q["Subtask Name"],
+                                "question": user_question,
+                                "answer": st.session_state[q_hash],
+                            }
+                        )
 
+                    # 无论是新问题还是缓存问题，都显示同一个回答
                     show_gpt_response(st.session_state[q_hash])
         else:
             st.info("No active step to ask about.")
@@ -557,7 +560,3 @@ with st.expander("🔐 Instructor Panel (password required)", expanded=False):
                 st.info("No survey responses submitted yet.")
         else:
             st.error("Incorrect instructor password.")
-
-
-
-
