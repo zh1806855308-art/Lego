@@ -429,7 +429,7 @@ with center:
 
                     genai_improvement_ideas = st.text_area(
                         "Do you prefer the get the instruction from GenAI or technical manual? Why?",
-                        placeholder="For example: automatic summarization, real-time error checking, more detailed step-by-step guidance…",
+                        placeholder="For example: automatic summarization, error checking, more detailed step-by-step guidance…",
                     )
 
                     free_feedback = st.text_area("Additional feedback:")
@@ -526,6 +526,7 @@ with st.expander("🔐 Instructor Panel (password required)", expanded=False):
                 st.info("No survey responses submitted yet.")
         else:
             st.error("Incorrect instructor password.")
+
 
 
 
