@@ -6,6 +6,8 @@ from PIL import Image
 from openai import OpenAI
 import base64
 import hashlib
+import json
+import io
 
 # Page config
 st.set_page_config(layout="wide", initial_sidebar_state="expanded")
@@ -28,8 +30,12 @@ if not os.path.exists(CSV_FILE):
     st.stop()
 
 df = pd.read_csv(CSV_FILE)
-df["Subassembly"] = df["Subassembly"].apply(lambda x: ast.literal_eval(x) if pd.notna(x) else [])
-df["Final Assembly"] = df["Final Assembly"].apply(lambda x: ast.literal_eval(x) if pd.notna(x) else [])
+df["Subassembly"] = df["Subassembly"].apply(
+    lambda x: ast.literal_eval(x) if pd.notna(x) else []
+)
+df["Final Assembly"] = df["Final Assembly"].apply(
+    lambda x: ast.literal_eval(x) if pd.notna(x) else []
+)
 
 
 @st.cache_data
@@ -135,7 +141,9 @@ if (
 ):
     st.header("Welcome to the Assembly Task")
 
-    group_name_input = st.selectbox("Which group are you in?", ["Red", "Yellow", "Blue", "Green"])
+    group_name_input = st.selectbox(
+        "Which group are you in?", ["Red", "Yellow", "Blue", "Green"]
+    )
     team_number_input = st.selectbox("Which team number are you in?", [1, 2, 3, 4, 5])
     student_name_input = st.text_input("Enter your name:")
 
@@ -149,6 +157,10 @@ if (
         else:
             st.warning("Please enter your name before submitting.")
     st.stop()
+
+# 初始化 AGEMT 聊天日志
+if "agemt_chat_log" not in st.session_state:
+    st.session_state.agemt_chat_log = []
 
 # === Sidebar Info ===
 with st.sidebar:
@@ -180,6 +192,7 @@ with st.sidebar:
         if st.session_state.get("step", 0) == 4:
             st.markdown("**Handover:** ✅")
 
+    # === AGEMT Q&A ===
     with st.expander("💬 AGEMT", expanded=False):
         st.markdown("Ask a question about your current step.")
         step_keys = ["q_step0", "q_step1", "q_step2", "q_step3", "q_step4"]
@@ -189,8 +202,10 @@ with st.sidebar:
             key = step_keys[current_step]
             user_question = st.text_input("Your question to AGEMT:", key=key)
             if user_question and user_question.lower() != "n":
-                task_idx = st.session_state.get("task_idx", 0)
-                current_task_q = df[df["Student Team"] == st.session_state.team_number].iloc[task_idx]
+                task_idx_for_q = st.session_state.get("task_idx", 0)
+                current_task_q = df[df["Student Team"] == st.session_state.team_number].iloc[
+                    task_idx_for_q
+                ]
                 idx_q = df.index.get_loc(current_task_q.name)
                 prev_row_q = df.iloc[idx_q - 1] if idx_q > 0 else None
 
@@ -199,7 +214,9 @@ with st.sidebar:
                     "subassembly": current_task_q["Subassembly"],
                     "final_assembly": current_task_q["Final Assembly"],
                     "bag": current_task_q["Bag"],
-                    "previous_step": prev_row_q["Subtask Name"] if prev_row_q is not None else None,
+                    "previous_step": prev_row_q["Subtask Name"]
+                    if prev_row_q is not None
+                    else None,
                     "team_number": st.session_state.team_number,
                     "task_sequence_text": format_task_sequence(df),
                 }
@@ -207,7 +224,20 @@ with st.sidebar:
                 if q_hash not in st.session_state:
                     answer = call_chatgpt(user_question, context_q)
                     st.session_state[q_hash] = answer
-                show_gpt_response(st.session_state[q_hash])
+
+                    # 记录这一轮问答到聊天日志
+                    st.session_state.agemt_chat_log.append(
+                        {
+                            "step": current_step,
+                            "task_idx": task_idx_for_q,
+                            "subtask_name": current_task_q["Subtask Name"],
+                            "question": user_question,
+                            "answer": answer,
+                        }
+                    )
+
+                answer_to_show = st.session_state[q_hash]
+                show_gpt_response(answer_to_show)
         else:
             st.info("No active step to ask about.")
 
@@ -267,7 +297,9 @@ with center:
                     if st.button(f"✅ Confirm completed Subassembly - Page {page}"):
                         st.session_state.subassembly_confirmed_pages.add(page)
                         st.rerun()
-            if len(st.session_state.subassembly_confirmed_pages) == len(context["subassembly"]):
+            if len(st.session_state.subassembly_confirmed_pages) == len(
+                context["subassembly"]
+            ):
                 st.success("All subassembly pages completed!")
                 st.session_state.step = 2
                 st.rerun()
@@ -284,7 +316,9 @@ with center:
             giver_team = prev_row["Student Team"]
             receiver_team = st.session_state.team_number
             st.subheader(f"Step 3: Receive from Team {giver_team}")
-            show_image(f"handling-image/receive-t{giver_team}-t{receiver_team}.png")
+            show_image(
+                f"handling-image/receive-t{giver_team}-t{receiver_team}.png"
+            )
             if not st.session_state.previous_step_confirmed:
                 if st.button("I have received the product from the previous team"):
                     st.session_state.previous_step_confirmed = True
@@ -315,7 +349,9 @@ with center:
                         st.session_state.finalassembly_confirmed_pages.add(page)
                         st.rerun()
 
-        if len(st.session_state.finalassembly_confirmed_pages) == len(final_assembly_pages):
+        if len(st.session_state.finalassembly_confirmed_pages) == len(
+            final_assembly_pages
+        ):
             st.success("All final assembly pages completed!")
             st.session_state.step = 4
             st.rerun()
@@ -349,6 +385,7 @@ with center:
         else:
             st.info("You have completed all your subtasks.")
 
+            # 初始化 survey 状态
             if "survey_submitted" not in st.session_state:
                 st.session_state.survey_submitted = False
 
@@ -365,7 +402,8 @@ with center:
                         index=["Red", "Yellow", "Blue", "Green"].index(
                             st.session_state.group_name
                         )
-                        if st.session_state.get("group_name") in ["Red", "Yellow", "Blue", "Green"]
+                        if st.session_state.get("group_name")
+                        in ["Red", "Yellow", "Blue", "Green"]
                         else 0,
                     )
 
@@ -383,9 +421,12 @@ with center:
                     )
 
                     difficulty = st.slider("Task difficulty (1 easy - 5 hard)", 1, 5, 3)
-                    enjoyment = st.slider("How enjoyable was the activity? (1-5)", 1, 5, 4)
-                    helpful = st.slider("Does AI helpful in this project? (1-5)", 1, 5, 4)
-                    clarity = st.slider("How clear were the instructions? (1-5)", 1, 5, 4)
+                    enjoyment = st.slider(
+                        "How enjoyable was the activity? (1-5)", 1, 5, 4
+                    )
+                    clarity = st.slider(
+                        "How clear were the instructions? (1-5)", 1, 5, 4
+                    )
                     would_repeat = st.radio(
                         "Would you like to do this again?",
                         ["Yes", "No", "Not sure"],
@@ -398,20 +439,28 @@ with center:
                     if not student_name.strip():
                         st.warning("Please enter your name before submitting.")
                     else:
+                        # 把 AGEMT 对话记录成 JSON 字符串
+                        conversation_log = json.dumps(
+                            st.session_state.get("agemt_chat_log", []),
+                            ensure_ascii=False,
+                        )
+
                         survey_row = {
                             "student_name": student_name.strip(),
                             "group_color": group_color,
                             "team_number": team_num,
                             "difficulty_1_5": difficulty,
                             "enjoyment_1_5": enjoyment,
-                            "helpful_1_5": helpful, 
                             "clarity_1_5": clarity,
                             "would_repeat": would_repeat,
                             "free_feedback": free_feedback.strip(),
+                            "conversation_log": conversation_log,
                         }
 
                         if not os.path.exists(SURVEY_FILE):
-                            pd.DataFrame([survey_row]).to_csv(SURVEY_FILE, index=False)
+                            pd.DataFrame([survey_row]).to_csv(
+                                SURVEY_FILE, index=False
+                            )
                         else:
                             pd.DataFrame([survey_row]).to_csv(
                                 SURVEY_FILE, index=False, mode="a", header=False
@@ -421,7 +470,6 @@ with center:
                         st.success("✅ Thank you! Your survey is saved.")
             else:
                 st.success("✅ Thank you! Your survey is saved.")
-
 
 #  Instructor Survey Viewer
 
@@ -434,8 +482,7 @@ if os.path.exists(SURVEY_FILE):
     st.success(f"Found {len(df_survey)} survey submissions.")
     st.dataframe(df_survey, use_container_width=True)
 
-    # --- Excel Download ---
-    import io
+    # Excel Download
     output = io.BytesIO()
     df_survey.to_excel(output, index=False, sheet_name="Survey Responses")
     excel_data = output.getvalue()
@@ -447,19 +494,14 @@ if os.path.exists(SURVEY_FILE):
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
 
-    # --- Delete button ---
+    # Delete button
     if st.button("🗑 Delete ALL survey responses"):
         try:
             os.remove(SURVEY_FILE)
             st.success("All survey responses have been deleted.")
-        except:
+        except Exception:
             st.error("Unexpected error while deleting the survey file.")
         st.rerun()
 
 else:
     st.info("No survey responses submitted yet.")
-
-
-
-
-
