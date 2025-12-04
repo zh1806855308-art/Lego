@@ -8,10 +8,14 @@ import base64
 import hashlib
 import io
 
-# ================= 基本配置 =================
+# ================== Page & constants ==================
 st.set_page_config(layout="wide", initial_sidebar_state="expanded")
 
-# --- OpenAI key ---
+CSV_FILE = "lego_subtasks.csv"
+SURVEY_FILE = "survey_responses.csv"
+ADMIN_PASSWORD = os.getenv("INSTRUCTOR_PASSWORD", "lego-admin")  # 自己改一个更安全的
+
+# ================== OpenAI client ==================
 api_key = os.getenv("OPENAI_API_KEY")
 if not api_key:
     st.error("Please set your OPENAI_API_KEY environment variable!")
@@ -19,14 +23,7 @@ if not api_key:
 
 client = OpenAI(api_key=api_key)
 
-# --- 文件路径 ---
-CSV_FILE = "lego_subtasks.csv"
-SURVEY_FILE = "survey_responses.csv"
-
-# ✅ 这里设置管理员密码（建议改成你自己的，或者从环境变量读）
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "lego-admin-123")
-
-# ================= 读取任务 CSV =================
+# ================== Load subtasks CSV ==================
 if not os.path.exists(CSV_FILE):
     st.error(f"CSV file '{CSV_FILE}' not found in the app directory.")
     st.stop()
@@ -36,7 +33,7 @@ df["Subassembly"] = df["Subassembly"].apply(lambda x: ast.literal_eval(x) if pd.
 df["Final Assembly"] = df["Final Assembly"].apply(lambda x: ast.literal_eval(x) if pd.notna(x) else [])
 
 
-# ================= 辅助函数 =================
+# ================== Helper functions ==================
 @st.cache_data
 def get_encoded_image(image_path: str):
     if os.path.exists(image_path):
@@ -56,10 +53,11 @@ def show_image(image_path: str, caption: str = ""):
 def show_gpt_response(answer: str):
     st.markdown(
         f"""
-    <div style='text-align: left; padding: 10px; background-color: #e8f0fe; border-left: 5px solid #4285f4; border-radius: 8px; margin-bottom: 1em;'>
-        🧠 <strong>AGEMT says:</strong><br>{answer}
-    </div>
-    """,
+        <div style='text-align: left; padding: 10px; background-color: #e8f0fe;
+                    border-left: 5px solid #4285f4; border-radius: 8px; margin-bottom: 1em;'>
+            🧠 <strong>AGEMT says:</strong><br>{answer}
+        </div>
+        """,
         unsafe_allow_html=True,
     )
 
@@ -101,7 +99,8 @@ def call_chatgpt(user_question: str, context: dict) -> str:
     system_prompt = (
         "You are a helpful assistant helping a student with a physical LEGO assembly task. "
         "The student belongs to a team and is working on a specific subtask. "
-        "You also have access to the entire task sequence across all teams to reason about handovers, task order, and dependencies."
+        "You also have access to the entire task sequence across all teams to reason about "
+        "handovers, task order, and dependencies."
     )
 
     user_prompt = f"""
@@ -132,7 +131,7 @@ Here is the full task sequence across all teams:
     return response.choices[0].message.content.strip()
 
 
-# ================= 学生信息填写页 =================
+# ================== User Info gate ==================
 if (
     "group_name" not in st.session_state
     or "student_name" not in st.session_state
@@ -155,15 +154,7 @@ if (
             st.warning("Please enter your name before submitting.")
     st.stop()
 
-# 初始化一些状态变量
-if "admin_authenticated" not in st.session_state:
-    st.session_state.admin_authenticated = False
-if "show_admin_login" not in st.session_state:
-    st.session_state.show_admin_login = False
-if "survey_submitted" not in st.session_state:
-    st.session_state.survey_submitted = False
-
-# ================= 侧边栏（进度 + 问答） =================
+# ================== Sidebar (progress + AGEMT) ==================
 with st.sidebar:
     st.header("Progress Tracker")
     st.markdown(f"**Student:** {st.session_state.student_name}")
@@ -193,7 +184,7 @@ with st.sidebar:
         if st.session_state.get("step", 0) == 4:
             st.markdown("**Handover:** ✅")
 
-    # GPT 问答
+    # ---- AGEMT Q&A ----
     with st.expander("💬 AGEMT", expanded=False):
         st.markdown("Ask a question about your current step.")
         step_keys = ["q_step0", "q_step1", "q_step2", "q_step3", "q_step4"]
@@ -203,8 +194,8 @@ with st.sidebar:
             key = step_keys[current_step]
             user_question = st.text_input("Your question to AGEMT:", key=key)
             if user_question and user_question.lower() != "n":
-                task_idx = st.session_state.get("task_idx", 0)
-                current_task_q = df[df["Student Team"] == st.session_state.team_number].iloc[task_idx]
+                task_idx_q = st.session_state.get("task_idx", 0)
+                current_task_q = df[df["Student Team"] == st.session_state.team_number].iloc[task_idx_q]
                 idx_q = df.index.get_loc(current_task_q.name)
                 prev_row_q = df.iloc[idx_q - 1] if idx_q > 0 else None
 
@@ -226,15 +217,15 @@ with st.sidebar:
             st.info("No active step to ask about.")
 
 
-# ================= 主流程（五个 Step） =================
+# ================== Main task flow ==================
 left, center, _ = st.columns([1, 2, 1])
-
 with center:
     team_tasks = df[df["Student Team"] == st.session_state.team_number]
     if team_tasks.empty:
         st.error(f"No subtasks found for Team {st.session_state.team_number}.")
         st.stop()
 
+    # init session state
     if "task_idx" not in st.session_state:
         st.session_state.task_idx = 0
         st.session_state.step = 0
@@ -254,13 +245,14 @@ with center:
         "previous_step": None,
     }
 
+    # progress bar
     total_steps = 5
     current_progress = min(step / (total_steps - 1), 1.0)
     subtask_id = current_task.get("Subtask ID", current_task["Subtask Name"])
     st.markdown(f"### 🧱 Subtask: {subtask_id}")
     st.progress(current_progress, text=f"Step {step + 1} of {total_steps}")
 
-    # Step 1
+    # ------- Step 0: collect parts -------
     if step == 0:
         st.subheader("Step 1: Collect required parts")
         part_img = f"combined_subtasks/{context['subtask_name']}.png"
@@ -271,7 +263,7 @@ with center:
                 st.session_state.step = 1
                 st.rerun()
 
-    # Step 2
+    # ------- Step 1: subassembly -------
     elif step == 1:
         if context["subassembly"]:
             st.subheader("Step 2: Perform subassembly")
@@ -289,7 +281,7 @@ with center:
             st.session_state.step = 2
             st.rerun()
 
-    # Step 3
+    # ------- Step 2: receive from previous team -------
     elif step == 2:
         idx = df.index.get_loc(current_task.name)
         if idx > 0:
@@ -309,7 +301,7 @@ with center:
             st.session_state.step = 3
             st.rerun()
 
-    # Step 4
+    # ------- Step 3: final assembly -------
     elif step == 3:
         st.subheader("Step 4: Perform the final assembly")
         subassembly_pages = set(context["subassembly"]) if context["subassembly"] else set()
@@ -334,7 +326,7 @@ with center:
             st.session_state.step = 4
             st.rerun()
 
-    # Step 5 + Survey
+    # ------- Step 4: handover + FINAL SURVEY -------
     elif step == 4:
         idx = df.index.get_loc(current_task.name)
         if idx + 1 < len(df):
@@ -362,7 +354,10 @@ with center:
         else:
             st.info("You have completed all your subtasks.")
 
-            # ------ Final Survey -------
+            # 学生 Final Survey（复杂版本）
+            if "survey_submitted" not in st.session_state:
+                st.session_state.survey_submitted = False
+
             st.markdown("---")
             st.markdown("### 📝 Final Survey")
 
@@ -393,13 +388,41 @@ with center:
                         value=st.session_state.get("student_name", ""),
                     )
 
+                    # ------------ 任务相关问题 ------------
+                    task_completion_driver = st.text_area(
+                        "What mainly helped you complete your task?",
+                        placeholder="e.g., clear instructions, teammate help, AGEMT suggestions, etc.",
+                    )
+
+                    ai_feedback_accuracy = st.slider(
+                        "How accurate was AGEMT's feedback? (1–5)",
+                        min_value=1,
+                        max_value=5,
+                        value=4,
+                    )
+
+                    ai_feedback_helpfulness = st.slider(
+                        "How helpful was AGEMT for your task? (1–5)",
+                        min_value=1,
+                        max_value=5,
+                        value=4,
+                    )
+
+                    score_improvement_ideas = st.text_area(
+                        "If you could change something to improve your final product score, what would you change?",
+                        placeholder="For example: change process, improve communication, adjust assembly strategy…",
+                    )
+
+                    genai_improvement_ideas = st.text_area(
+                        "How could GenAI/AGEMT be improved to better support your task?",
+                        placeholder="For example: more step-by-step hints, more pictures, more detailed checks…",
+                    )
+
+                    # ------------ 体验相关问题 ------------
                     difficulty = st.slider("Task difficulty (1 easy - 5 hard)", 1, 5, 3)
                     enjoyment = st.slider("How enjoyable was the activity? (1-5)", 1, 5, 4)
                     clarity = st.slider("How clear were the instructions? (1-5)", 1, 5, 4)
-                    would_repeat = st.radio(
-                        "Would you like to do this again?",
-                        ["Yes", "No", "Not sure"],
-                    )
+
                     free_feedback = st.text_area("Additional feedback:")
 
                     submitted = st.form_submit_button("Submit Survey")
@@ -412,11 +435,15 @@ with center:
                             "student_name": student_name.strip(),
                             "group_color": group_color,
                             "team_number": team_num,
+                            "task_completion_driver": task_completion_driver.strip() or None,
+                            "ai_feedback_accuracy_1_5": ai_feedback_accuracy,
+                            "ai_feedback_helpfulness_1_5": ai_feedback_helpfulness,
+                            "score_improvement_ideas": score_improvement_ideas.strip() or None,
+                            "genai_improvement_ideas": genai_improvement_ideas.strip() or None,
                             "difficulty_1_5": difficulty,
                             "enjoyment_1_5": enjoyment,
                             "clarity_1_5": clarity,
-                            "would_repeat": would_repeat,
-                            "free_feedback": free_feedback.strip(),
+                            "free_feedback": free_feedback.strip() or None,
                         }
 
                         if not os.path.exists(SURVEY_FILE):
@@ -432,66 +459,46 @@ with center:
                 st.success("✅ Thank you! Your survey is saved.")
 
 
-# ================= Instructor 后台（需要密码） =================
-
-def show_instructor_dashboard():
-    st.markdown("### 📊 Instructor: View & Download Survey Responses")
-
-    if os.path.exists(SURVEY_FILE):
-        df_survey = pd.read_csv(SURVEY_FILE)
-
-        st.success(f"Found {len(df_survey)} survey submissions.")
-        st.dataframe(df_survey, use_container_width=True)
-
-        # 下载为 Excel
-        output = io.BytesIO()
-        df_survey.to_excel(output, index=False, sheet_name="Survey Responses")
-        excel_data = output.getvalue()
-
-        st.download_button(
-            label="⬇️ Download survey_responses.xlsx",
-            data=excel_data,
-            file_name="survey_responses.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        )
-
-        # 删除按钮
-        if st.button("🗑 Delete ALL survey responses"):
-            try:
-                os.remove(SURVEY_FILE)
-                st.success("All survey responses have been deleted.")
-            except Exception:
-                st.error("Unexpected error while deleting the survey file.")
-            st.rerun()
-    else:
-        st.info("No survey responses submitted yet.")
-
-
-# ----- 只有管理员 / 知道密码的人才能看到表格 -----
+# ================== Instructor dashboard (password) ==================
 st.markdown("---")
+st.markdown("### 🔐 Instructor dashboard (password required)")
 
-# 这里可以控制“什么时候”显示 Instructor 区域入口
-# 现在的逻辑：只要有 survey 文件 或 当前 session 已提交 survey，就显示一个小入口按钮
-if os.path.exists(SURVEY_FILE) or st.session_state.get("survey_submitted", False):
+with st.expander("Open instructor dashboard"):
+    password_input = st.text_input("Instructor password:", type="password")
 
-    st.markdown("#### 🔐 Instructor dashboard (password required)")
+    if password_input:
+        if password_input != ADMIN_PASSWORD:
+            st.error("Incorrect password.")
+        else:
+            if os.path.exists(SURVEY_FILE):
+                df_survey = pd.read_csv(SURVEY_FILE)
+                st.success(f"Found {len(df_survey)} survey submissions.")
+                st.dataframe(df_survey, use_container_width=True)
 
-    # 点击按钮后才展开登录框，避免一开始就很显眼
-    if st.button("Open instructor login"):
-        st.session_state.show_admin_login = True
+                # Excel download
+                output = io.BytesIO()
+                df_survey.to_excel(output, index=False, sheet_name="Survey Responses")
+                excel_data = output.getvalue()
 
-    if st.session_state.show_admin_login or st.session_state.admin_authenticated:
-        with st.expander("Instructor login", expanded=not st.session_state.admin_authenticated):
-            password_input = st.text_input("Enter instructor password:", type="password")
-            if st.button("Login", key="admin_login_button"):
-                if password_input == ADMIN_PASSWORD:
-                    st.session_state.admin_authenticated = True
-                    st.session_state.show_admin_login = False
-                    st.success("Instructor login successful.")
-                    st.rerun()
-                else:
-                    st.error("Incorrect password.")
+                st.download_button(
+                    label="⬇️ Download survey_responses.xlsx",
+                    data=excel_data,
+                    file_name="survey_responses.xlsx",
+                    mime=(
+                        "application/vnd.openxmlformats-"
+                        "officedocument.spreadsheetml.sheet"
+                    ),
+                )
 
-    # 密码正确后才真正显示数据表 + 下载 + 删除
-    if st.session_state.admin_authenticated:
-        show_instructor_dashboard()
+                # Delete all
+                if st.button("🗑 Delete ALL survey responses"):
+                    try:
+                        os.remove(SURVEY_FILE)
+                        st.success("All survey responses have been deleted.")
+                    except Exception:
+                        st.error("Unexpected error while deleting the survey file.")
+                    st.experimental_rerun()
+            else:
+                st.info("No survey responses submitted yet.")
+    else:
+        st.info("Enter password to view survey data.")
